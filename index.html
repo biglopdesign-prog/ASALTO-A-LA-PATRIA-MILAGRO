@@ -1,0 +1,2352 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ASALTO A LA PATRIA MILAGRO — Contra Pixel Art Edition</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
+    background-color: #050508;
+    color: #f8f9fa;
+    font-family: 'Press Start 2P', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+  }
+
+  #game-wrapper {
+    position: relative;
+    width: 100vw;
+    max-width: 1152px;
+    aspect-ratio: 16 / 9;
+    background: #000;
+    border: 3px solid #2b2d42;
+    box-shadow: 0 0 45px rgba(0, 229, 255, 0.14), 0 0 90px rgba(0, 0, 0, 0.95);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+
+  /* Barra superior limpia de utilidades sin acceso directo al Nivel 2 */
+  #top-bar {
+    width: 100vw;
+    max-width: 1152px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 9px;
+    color: #ffd600;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .arcade-btn {
+    background: #14161f;
+    color: #ffd600;
+    border: 2px solid #ffd600;
+    padding: 5px 10px;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: transform 0.08s, background 0.12s;
+  }
+
+  .arcade-btn:hover {
+    background: #ffd600;
+    color: #111;
+  }
+
+  .arcade-btn:active {
+    transform: scale(0.96);
+  }
+
+  /* Controles táctiles para móvil / tablet */
+  #touch-controls {
+    display: none;
+    width: 100vw;
+    max-width: 1152px;
+    padding: 8px 12px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  @media (pointer: coarse), (max-width: 780px) {
+    #touch-controls {
+      display: flex;
+    }
+  }
+
+  .dpad {
+    display: grid;
+    grid-template-columns: repeat(3, 42px);
+    grid-template-rows: repeat(3, 42px);
+    gap: 4px;
+  }
+
+  .t-btn {
+    background: rgba(255, 214, 0, 0.16);
+    border: 2px solid #ffd600;
+    color: #fff;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+  }
+
+  .t-btn:active, .t-btn.active {
+    background: #ffd600;
+    color: #111;
+  }
+
+  .action-pad {
+    display: flex;
+    gap: 10px;
+  }
+
+  .a-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    touch-action: manipulation;
+  }
+</style>
+</head>
+<body>
+
+<div id="top-bar">
+  <div>ASALTO A LA PATRIA MILAGRO <span style="color:#e62129;">●</span> 1987 NES ARCADE</div>
+  <div style="display:flex; gap:6px; flex-wrap:wrap;">
+    <button class="arcade-btn" id="btn-title">PANTALLA TÍTULO</button>
+    <button class="arcade-btn" id="btn-toggle-guide">GUÍA [H]</button>
+    <button class="arcade-btn" id="btn-mute">SONIDO: ON</button>
+  </div>
+</div>
+
+<div id="game-wrapper">
+  <canvas id="gameCanvas" width="512" height="288"></canvas>
+</div>
+
+<!-- Controles táctiles responsivos -->
+<div id="touch-controls">
+  <div class="dpad">
+    <div></div>
+    <button class="t-btn" data-key="ArrowUp">▲</button>
+    <div></div>
+    <button class="t-btn" data-key="ArrowLeft">◄</button>
+    <button class="t-btn" data-key="ArrowDown">▼</button>
+    <button class="t-btn" data-key="ArrowRight">►</button>
+    <div></div><div></div><div></div>
+  </div>
+  <div class="action-pad">
+    <button class="a-btn" style="background:#1e88e5;" data-key="Space">SALTO<br>[ESP]</button>
+    <button class="a-btn" style="background:#e62129;" data-key="KeyJ">TIRO<br>[J/Z]</button>
+    <button class="a-btn" style="background:#2e7d32;" data-key="KeyK">ACCIÓN<br>[K/E]</button>
+  </div>
+</div>
+
+<script>
+/**
+ * ============================================================================
+ * ASALTO A LA PATRIA MILAGRO — RUN & GUN PIXEL ART DE ALTO DETALLE (CONTRA 1987)
+ * ============================================================================
+ * Resolución lógica: 512x288 (16:9 pixel-perfect con sombreado dither y 16-bit/8-bit shading)
+ * Progresión estricta:
+ *   - Cinemática de introducción con opción SKIP antes del Nivel 1.
+ *   - El Nivel 2 (Rescate con Superhéroe Frente Gigante) está BLOQUEADO hasta
+ *     completar y superar el Nivel 1 (Toma del supermercado "méxito"), seguido
+ *     de su cinemática narrativa con opción SKIP.
+ * ============================================================================
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+ctx.imageSmoothingEnabled = false;
+
+const W = 512;
+const H = 288;
+const HUD_H = 26;       // Barra HUD superior dedicada (sin superposición con escenario)
+const GROUND_Y = 242;
+
+// ============================================================================
+// 1. MOTOR DE AUDIO CHIPTUNE & SFX RETRO (WEB AUDIO API)
+// ============================================================================
+class RetroAudio {
+  constructor() {
+    this.ctx = null;
+    this.muted = false;
+    this.bgmTimer = 0;
+    this.bgmStep = 0;
+  }
+
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioCtx();
+    }
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  playTone(freq, type, duration, vol = 0.11, slideFreq = null) {
+    if (this.muted || !this.ctx) return;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+      if (slideFreq) {
+        osc.frequency.exponentialRampToValueAtTime(slideFreq, this.ctx.currentTime + duration);
+      }
+      gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start();
+      osc.stop(this.ctx.currentTime + duration);
+    } catch (e) {}
+  }
+
+  playNoise(duration, vol = 0.16) {
+    if (this.muted || !this.ctx) return;
+    try {
+      const bufferSize = this.ctx.sampleRate * duration;
+      const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const noise = this.ctx.createBufferSource();
+      noise.buffer = buffer;
+      const filter = this.ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 950;
+      const gain = this.ctx.createGain();
+      gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+      noise.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.ctx.destination);
+      noise.start();
+    } catch (e) {}
+  }
+
+  menuMove() {
+    this.playTone(660, 'square', 0.05, 0.08);
+  }
+
+  menuSelect() {
+    this.playTone(523.25, 'square', 0.08, 0.11);
+    setTimeout(() => this.playTone(783.99, 'square', 0.14, 0.11), 70);
+  }
+
+  shoot(weapon = 'R') {
+    if (weapon === 'S') {
+      this.playTone(560, 'sawtooth', 0.11, 0.12, 120);
+      this.playNoise(0.06, 0.08);
+    } else if (weapon === 'M') {
+      this.playTone(780, 'square', 0.06, 0.1, 210);
+    } else {
+      this.playTone(640, 'square', 0.08, 0.1, 175);
+    }
+  }
+
+  jump() {
+    this.playTone(220, 'square', 0.14, 0.09, 540);
+  }
+
+  hit() {
+    this.playTone(175, 'sawtooth', 0.08, 0.11, 65);
+  }
+
+  explosion() {
+    this.playNoise(0.28, 0.2);
+    this.playTone(105, 'sawtooth', 0.25, 0.16, 30);
+  }
+
+  powerup() {
+    const notes = [523.25, 659.25, 783.99, 1046.5];
+    notes.forEach((n, idx) => {
+      setTimeout(() => this.playTone(n, 'square', 0.08, 0.11), idx * 50);
+    });
+  }
+
+  patriaMilagroFanfare() {
+    const seq = [
+      { f: 392.0, d: 0.09, t: 0 },
+      { f: 523.25, d: 0.09, t: 70 },
+      { f: 659.25, d: 0.09, t: 140 },
+      { f: 783.99, d: 0.20, t: 210 },
+      { f: 659.25, d: 0.09, t: 340 },
+      { f: 1046.5, d: 0.30, t: 410 }
+    ];
+    seq.forEach(s => {
+      setTimeout(() => this.playTone(s.f, 'square', s.d, 0.14), s.t);
+    });
+  }
+
+  updateBgm(dt, mode) {
+    if (this.muted || !this.ctx || mode === 'TITLE') return;
+    this.bgmTimer += dt;
+    const tempo = mode === 'LEVEL2' ? 0.14 : 0.16;
+    if (this.bgmTimer >= tempo) {
+      this.bgmTimer = 0;
+      const bass1 = [110, 110, 146.83, 130.81, 164.81, 146.83, 130.81, 98.0];
+      const bass2 = [130.81, 130.81, 164.81, 196.0, 174.61, 164.81, 146.83, 196.0];
+      const line = mode === 'LEVEL2' ? bass2 : bass1;
+      const note = line[this.bgmStep % line.length];
+      this.playTone(note, 'triangle', 0.1, 0.04);
+      if (this.bgmStep % 4 === 0) {
+        this.playNoise(0.03, 0.022);
+      }
+      this.bgmStep++;
+    }
+  }
+}
+
+const audio = new RetroAudio();
+
+// ============================================================================
+// 2. GENERADOR DE SPRITES EN PIXEL ART DETALLADO (NES / 16-BIT SHADING & DITHER)
+// ============================================================================
+function createPixelSprite(w, h, drawFn) {
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const g = c.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  drawFn(g, w, h);
+  return c;
+}
+
+function px(g, x, y, w, h, color) {
+  g.fillStyle = color;
+  g.fillRect(Math.floor(x), Math.floor(y), Math.floor(w), Math.floor(h));
+}
+
+function ditherRect(g, x, y, w, h, c1, c2) {
+  for (let yy = 0; yy < h; yy++) {
+    for (let xx = 0; xx < w; xx++) {
+      g.fillStyle = ((xx + yy) % 2 === 0) ? c1 : c2;
+      g.fillRect(Math.floor(x + xx), Math.floor(y + yy), 1, 1);
+    }
+  }
+}
+
+const Sprites = {};
+
+function buildSprites() {
+  // --------------------------------------------------------------------------
+  // A. RETRATO DUAL DE PANTALLA DE TÍTULO ESTILO CONTRA NES (156x108 px)
+  // --------------------------------------------------------------------------
+  Sprites.titlePortraits = createPixelSprite(156, 108, (g) => {
+    // Izquierda: Líder Asaltante Táctico de perfil
+    px(g, 14, 18, 42, 46, '#14171f');
+    px(g, 18, 22, 34, 38, '#232836');
+    px(g, 12, 26, 46, 7, '#e62129');
+    px(g, 2, 28, 12, 6, '#e62129');
+    px(g, 0, 34, 10, 5, '#b71c1c');
+    px(g, 32, 34, 22, 10, '#f5cba7');
+    px(g, 36, 36, 6, 4, '#111111');
+    px(g, 46, 36, 5, 4, '#111111');
+    px(g, 8, 64, 54, 44, '#1b261e');
+    px(g, 14, 68, 42, 40, '#2e4033');
+    px(g, 18, 74, 10, 14, '#ffd600');
+    px(g, 36, 74, 10, 14, '#ffd600');
+
+    // Derecha: Superhéroe "La Patria Milagro" con cabeza gigante y frente enorme
+    px(g, 66, 2, 74, 72, '#8d5524');
+    px(g, 70, 5, 66, 66, '#e0ac69');
+    px(g, 74, 8, 58, 36, '#f5cba7');
+    px(g, 84, 14, 26, 14, '#fdebd0');
+    px(g, 66, 12, 6, 42, '#111111');
+    px(g, 134, 12, 6, 42, '#111111');
+    px(g, 74, 2, 58, 5, '#111111');
+    // Cejas, ojos, nariz y barba
+    px(g, 76, 40, 20, 5, '#111111');
+    px(g, 108, 40, 20, 5, '#111111');
+    px(g, 78, 46, 16, 8, '#ffffff');
+    px(g, 84, 46, 7, 8, '#111111');
+    px(g, 110, 46, 16, 8, '#ffffff');
+    px(g, 116, 46, 7, 8, '#111111');
+    px(g, 100, 46, 6, 14, '#c68642');
+    px(g, 72, 54, 62, 22, '#141414');
+    px(g, 88, 60, 30, 6, '#f5cba7');
+    px(g, 94, 62, 18, 2, '#ffffff');
+    // Hombros y pecho heroico azul y dorado
+    px(g, 58, 76, 90, 32, '#0d47a1');
+    px(g, 66, 80, 74, 28, '#1565c0');
+    px(g, 86, 84, 34, 18, '#ffd600');
+    px(g, 96, 88, 14, 10, '#e62129');
+  });
+
+  // --------------------------------------------------------------------------
+  // B. CURSOR DE ÁGUILA / HALCÓN DORADO ESTILO CONTRA NES (22x14 px)
+  // --------------------------------------------------------------------------
+  Sprites.eagleCursor = createPixelSprite(22, 14, (g) => {
+    px(g, 9, 1, 4, 12, '#ff8f00');
+    px(g, 10, 2, 2, 10, '#ffd600');
+    px(g, 2, 4, 18, 4, '#ff8f00');
+    px(g, 1, 5, 20, 2, '#ffd600');
+    px(g, 4, 3, 14, 2, '#fff59d');
+    px(g, 10, 0, 2, 2, '#ffffff');
+    px(g, 8, 11, 6, 2, '#ffd600');
+  });
+
+  // --------------------------------------------------------------------------
+  // C. MASCOTA CRISPY (Búho Chef detallado 44x48 px)
+  // --------------------------------------------------------------------------
+  Sprites.owlChef = createPixelSprite(44, 48, (g) => {
+    px(g, 11, 2, 22, 10, '#111111');
+    px(g, 12, 3, 20, 7, '#ffffff');
+    px(g, 9, 5, 26, 5, '#ffffff');
+    px(g, 12, 8, 20, 2, '#cfd8dc');
+    px(g, 13, 10, 18, 2, '#ffd600');
+    px(g, 13, 12, 18, 2, '#e62129');
+    px(g, 10, 14, 24, 14, '#5d4037');
+    px(g, 9, 13, 4, 4, '#3e2723');
+    px(g, 31, 13, 4, 4, '#3e2723');
+    px(g, 12, 16, 20, 11, '#fff8e1');
+    px(g, 13, 17, 7, 7, '#ffffff');
+    px(g, 24, 17, 7, 7, '#ffffff');
+    px(g, 16, 19, 3, 4, '#111111');
+    px(g, 26, 19, 3, 4, '#111111');
+    px(g, 17, 19, 1, 1, '#ffffff');
+    px(g, 27, 19, 1, 1, '#ffffff');
+    px(g, 20, 21, 4, 5, '#ffb300');
+    px(g, 21, 24, 2, 3, '#e65100');
+    px(g, 9, 28, 26, 13, '#c62828');
+    px(g, 11, 29, 22, 11, '#e62129');
+    px(g, 17, 28, 10, 12, '#ffd600');
+    px(g, 15, 28, 14, 4, '#b71c1c');
+    px(g, 21, 33, 2, 2, '#111111');
+    px(g, 21, 37, 2, 2, '#111111');
+    px(g, 3, 27, 6, 8, '#e62129');
+    px(g, 1, 25, 4, 6, '#ffffff');
+    px(g, 35, 27, 6, 8, '#e62129');
+    px(g, 39, 25, 4, 6, '#ffffff');
+    px(g, 13, 41, 6, 5, '#ffb300');
+    px(g, 25, 41, 6, 5, '#ffb300');
+  });
+
+  // --------------------------------------------------------------------------
+  // D. SUPERHÉROE "LA PATRIA MILAGRO" IN-GAME (44x56 px)
+  // --------------------------------------------------------------------------
+  Sprites.foreheadHero = createPixelSprite(44, 56, (g) => {
+    px(g, 2, 30, 12, 22, '#b71c1c');
+    ditherRect(g, 4, 32, 8, 18, '#d50000', '#8e0000');
+    px(g, 10, 1, 24, 28, '#8d5524');
+    px(g, 11, 2, 22, 26, '#e0ac69');
+    px(g, 13, 3, 18, 16, '#f5cba7');
+    px(g, 16, 5, 9, 5, '#fdebd0');
+    px(g, 10, 4, 2, 18, '#111111');
+    px(g, 32, 4, 2, 18, '#111111');
+    px(g, 13, 1, 18, 2, '#111111');
+    px(g, 13, 15, 7, 2, '#111111');
+    px(g, 24, 15, 7, 2, '#111111');
+    px(g, 14, 17, 5, 3, '#ffffff');
+    px(g, 16, 17, 2, 3, '#111111');
+    px(g, 25, 17, 5, 3, '#ffffff');
+    px(g, 27, 17, 2, 3, '#111111');
+    px(g, 21, 17, 2, 5, '#c68642');
+    px(g, 12, 21, 20, 8, '#141414');
+    px(g, 17, 23, 10, 2, '#f5cba7');
+    px(g, 19, 24, 6, 1, '#ffffff');
+    px(g, 12, 29, 20, 14, '#0d47a1');
+    px(g, 14, 30, 16, 12, '#1565c0');
+    px(g, 17, 32, 10, 6, '#ffd600');
+    px(g, 20, 33, 4, 4, '#e62129');
+    px(g, 8, 30, 4, 10, '#1565c0');
+    px(g, 32, 30, 6, 8, '#1e88e5');
+    px(g, 37, 30, 5, 5, '#f5cba7');
+    px(g, 12, 41, 20, 2, '#ffd600');
+    px(g, 14, 43, 6, 8, '#0d47a1');
+    px(g, 24, 43, 6, 8, '#0d47a1');
+    px(g, 13, 51, 7, 5, '#d50000');
+    px(g, 24, 51, 7, 5, '#d50000');
+  });
+
+  // --------------------------------------------------------------------------
+  // E. PERSONAJES JUGABLES CON ANIMACIÓN DE CORRER EN 6 FRAMES (32x44 px)
+  //    + SPRITES CUERPO A TIERRA / PRONE HORIZONTAL PEGADO AL PISO (48x14 px)
+  // --------------------------------------------------------------------------
+  function makeRunnerFrames(theme) {
+    const frames = [];
+    const legOffsets = [
+      { lx: 9, ly: 31, rx: 18, ry: 31 },
+      { lx: 6, ly: 29, rx: 20, ry: 32 },
+      { lx: 11, ly: 31, rx: 16, ry: 29 },
+      { lx: 18, ly: 31, rx: 9, ry: 31 },
+      { lx: 20, ly: 32, rx: 6, ry: 29 },
+      { lx: 16, ly: 29, rx: 11, ry: 31 }
+    ];
+
+    for (let f = 0; f < 6; f++) {
+      frames.push(createPixelSprite(32, 44, (g) => {
+        const bob = (f % 3 === 1) ? -1 : 0;
+        const legs = legOffsets[f];
+
+        if (theme === 'ROBBER') {
+          px(g, 10, 3 + bob, 12, 11, '#14171f');
+          px(g, 11, 4 + bob, 10, 9, '#232836');
+          px(g, 9, 5 + bob, 14, 2, '#e62129');
+          px(g, 4 - (f % 2), 6 + bob, 5, 2, '#e62129');
+          px(g, 3, 8 + bob, 4, 2, '#b71c1c');
+          px(g, 14, 7 + bob, 7, 3, '#f5cba7');
+          px(g, 15, 8 + bob, 2, 1, '#111111');
+          px(g, 19, 8 + bob, 2, 1, '#111111');
+          px(g, 8, 14 + bob, 16, 15, '#1b261e');
+          px(g, 10, 15 + bob, 12, 13, '#2e4033');
+          px(g, 11, 17 + bob, 3, 4, '#ffd600');
+          px(g, 17, 17 + bob, 3, 4, '#ffd600');
+          px(g, 9, 27 + bob, 14, 2, '#111111');
+          px(g, legs.lx, legs.ly, 5, 9, '#1f242d');
+          px(g, legs.rx, legs.ry, 5, 9, '#2c3340');
+          px(g, legs.lx - 1, legs.ly + 8, 6, 4, '#111111');
+          px(g, legs.rx - 1, legs.ry + 8, 6, 4, '#111111');
+        } else {
+          px(g, 9, 2 + bob, 14, 6, '#0d47a1');
+          px(g, 11, 3 + bob, 10, 3, '#1e88e5');
+          px(g, 10, 6 + bob, 13, 2, '#ffd600');
+          px(g, 11, 8 + bob, 10, 6, '#e0ac69');
+          px(g, 7, 14 + bob, 18, 15, '#0d47a1');
+          px(g, 9, 15 + bob, 14, 13, '#1565c0');
+          px(g, 12, 17 + bob, 8, 6, '#1e88e5');
+          px(g, 9, 27 + bob, 14, 2, '#ffd600');
+          px(g, legs.lx, legs.ly, 5, 9, '#0d47a1');
+          px(g, legs.rx, legs.ry, 5, 9, '#1565c0');
+          px(g, legs.lx - 1, legs.ly + 8, 6, 4, '#111111');
+          px(g, legs.rx - 1, legs.ry + 8, 6, 4, '#111111');
+        }
+      }));
+    }
+    return frames;
+  }
+
+  function makeProneSprite(theme) {
+    return createPixelSprite(48, 14, (g) => {
+      if (theme === 'ROBBER') {
+        px(g, 1, 8, 12, 5, '#1f242d');
+        px(g, 0, 9, 5, 5, '#111111');
+        px(g, 13, 6, 17, 7, '#1b261e');
+        px(g, 14, 7, 15, 5, '#2e4033');
+        px(g, 17, 8, 3, 2, '#ffd600');
+        px(g, 23, 8, 3, 2, '#ffd600');
+        px(g, 30, 4, 9, 8, '#14171f');
+        px(g, 31, 5, 7, 6, '#232836');
+        px(g, 30, 5, 9, 2, '#e62129');
+        px(g, 26, 4, 4, 2, '#e62129');
+        px(g, 34, 7, 4, 2, '#f5cba7');
+        px(g, 36, 7, 2, 1, '#111111');
+        px(g, 25, 11, 10, 3, '#e0ac69');
+        px(g, 33, 9, 15, 3, '#111111');
+        px(g, 35, 10, 13, 1, '#cfd8dc');
+      } else {
+        px(g, 1, 8, 12, 5, '#0d47a1');
+        px(g, 0, 9, 5, 5, '#111111');
+        px(g, 13, 6, 17, 7, '#0d47a1');
+        px(g, 14, 7, 15, 5, '#1565c0');
+        px(g, 30, 4, 10, 8, '#0d47a1');
+        px(g, 31, 6, 8, 2, '#ffd600');
+        px(g, 25, 11, 10, 3, '#e0ac69');
+        px(g, 33, 9, 15, 3, '#111111');
+        px(g, 35, 10, 13, 1, '#00e5ff');
+      }
+    });
+  }
+
+  Sprites.robberFrames = makeRunnerFrames('ROBBER');
+  Sprites.soldierFrames = makeRunnerFrames('SOLDIER');
+  Sprites.robberProne = makeProneSprite('ROBBER');
+  Sprites.soldierProne = makeProneSprite('SOLDIER');
+
+  // --------------------------------------------------------------------------
+  // F. ENEMIGOS DETALLADOS (28x38 px) + SPRITE PRONE DE ASALTANTE IA (46x14 px)
+  // --------------------------------------------------------------------------
+  Sprites.guardEnemy = createPixelSprite(28, 38, (g) => {
+    px(g, 9, 2, 10, 4, '#263238');
+    px(g, 9, 6, 10, 6, '#e0ac69');
+    px(g, 10, 7, 4, 2, '#111111');
+    px(g, 7, 12, 14, 14, '#37474f');
+    px(g, 9, 13, 10, 12, '#546e7a');
+    px(g, 12, 14, 4, 10, '#eceff1');
+    px(g, 8, 26, 5, 8, '#263238');
+    px(g, 15, 26, 5, 8, '#263238');
+    px(g, 7, 34, 6, 4, '#111111');
+    px(g, 15, 34, 6, 4, '#111111');
+  });
+
+  Sprites.criminalEnemy = createPixelSprite(28, 38, (g) => {
+    px(g, 9, 2, 10, 10, '#111111');
+    px(g, 10, 6, 8, 3, '#f5cba7');
+    px(g, 11, 7, 2, 1, '#111111');
+    px(g, 7, 12, 14, 14, '#b71c1c');
+    px(g, 9, 13, 10, 12, '#e62129');
+    px(g, 10, 15, 8, 8, '#ffd600');
+    px(g, 8, 26, 5, 8, '#1a1a1a');
+    px(g, 15, 26, 5, 8, '#1a1a1a');
+    px(g, 7, 34, 6, 4, '#ffffff');
+    px(g, 15, 34, 6, 4, '#ffffff');
+  });
+
+  Sprites.criminalProne = createPixelSprite(46, 14, (g) => {
+    px(g, 1, 8, 12, 5, '#1a1a1a');
+    px(g, 0, 9, 5, 5, '#ffffff');
+    px(g, 13, 6, 17, 7, '#b71c1c');
+    px(g, 14, 7, 15, 5, '#e62129');
+    px(g, 17, 8, 9, 3, '#ffd600');
+    px(g, 30, 4, 9, 8, '#111111');
+    px(g, 33, 7, 5, 2, '#f5cba7');
+    px(g, 35, 7, 2, 1, '#111111');
+    px(g, 32, 10, 14, 2, '#263238');
+  });
+
+  // --------------------------------------------------------------------------
+  // G. REHÉN, BOTÍN Y CÁMARA DE CINE
+  // --------------------------------------------------------------------------
+  Sprites.hostage = createPixelSprite(24, 32, (g) => {
+    px(g, 7, 2, 10, 9, '#f5cba7');
+    px(g, 7, 1, 10, 3, '#4e342e');
+    px(g, 9, 5, 2, 2, '#111111');
+    px(g, 14, 5, 2, 2, '#111111');
+    px(g, 6, 11, 12, 12, '#0288d1');
+    px(g, 5, 16, 14, 3, '#ffd600');
+    px(g, 7, 23, 4, 6, '#37474f');
+    px(g, 13, 23, 4, 6, '#37474f');
+    px(g, 6, 29, 5, 3, '#111111');
+    px(g, 13, 29, 5, 3, '#111111');
+  });
+
+  Sprites.lootCrispy = createPixelSprite(18, 18, (g) => {
+    px(g, 3, 7, 12, 10, '#e62129');
+    px(g, 3, 10, 12, 2, '#ffd600');
+    px(g, 4, 2, 4, 5, '#d87d2a');
+    px(g, 10, 2, 4, 5, '#d87d2a');
+    px(g, 5, 1, 2, 2, '#fff8e1');
+    px(g, 11, 1, 2, 2, '#fff8e1');
+  });
+
+  Sprites.lootLiquor = createPixelSprite(18, 18, (g) => {
+    px(g, 7, 1, 4, 5, '#ffd600');
+    px(g, 4, 6, 10, 11, '#1b5e20');
+    px(g, 6, 7, 2, 9, '#4caf50');
+    px(g, 5, 9, 8, 5, '#fff8e1');
+  });
+
+  Sprites.lootClothes = createPixelSprite(18, 18, (g) => {
+    px(g, 2, 4, 14, 12, '#00838f');
+    px(g, 5, 4, 8, 12, '#00acc1');
+    px(g, 7, 4, 4, 12, '#ffffff');
+    px(g, 5, 2, 8, 2, '#ffd600');
+  });
+
+  Sprites.movieCamera = createPixelSprite(34, 30, (g) => {
+    px(g, 7, 2, 7, 7, '#263238');
+    px(g, 15, 2, 7, 7, '#263238');
+    px(g, 6, 9, 18, 10, '#111111');
+    px(g, 8, 11, 14, 6, '#37474f');
+    px(g, 24, 10, 7, 8, '#00e5ff');
+    px(g, 13, 19, 4, 10, '#90a4ae');
+    px(g, 8, 25, 5, 5, '#607d8b');
+    px(g, 17, 25, 5, 5, '#607d8b');
+  });
+}
+
+buildSprites();
+
+// ============================================================================
+// 3. ESTADO DEL JUEGO, MENÚ DE TÍTULO Y BLOQUEO ESTRICTO DE PROGRESIÓN
+// ============================================================================
+const keys = {};
+const justPressed = {};
+
+const state = {
+  mode: 'TITLE', // TITLE, CUTSCENE_INTRO, LEVEL1, CUTSCENE_1_TO_2, LEVEL2, VICTORY_SET, GAMEOVER
+  level: 1,
+  level1Completed: false, // Bloqueo estricto: Nivel 2 inaccesible sin rescatar/superar Nivel 1
+  titleMenuIndex: 0,      // 0 = INICIAR ASALTO (NIVEL 1), 1 = CONTROLES Y GUÍA
+  showTitleGuide: false,
+  showControlsBar: true,
+  score: 0,
+  cameraX: 0,
+  levelLength: 2300,
+  shake: 0,
+  patriaBannerTimer: 0,
+  patriaBannerCount: 0,
+  cutsceneTimer: 0,
+  cutscenePage: 0,
+  movieCrewProgress: 0,
+  subduedCount: 0,
+  rescuedCount: 0,
+  totalHostages: 4
+};
+
+// Coordenadas del botón táctil/clic SKIP en cinemáticas
+const SKIP_BTN = { x: W - 98, y: 12, w: 84, h: 18 };
+
+function triggerIntroCutscene() {
+  state.mode = 'CUTSCENE_INTRO';
+  state.cutsceneTimer = 0;
+  state.cutscenePage = 0;
+}
+
+function advanceOrSkipCutscene() {
+  if (state.mode === 'CUTSCENE_INTRO') {
+    audio.menuSelect();
+    startLevel(1);
+  } else if (state.mode === 'CUTSCENE_1_TO_2' && state.level1Completed) {
+    audio.menuSelect();
+    startLevel(2);
+  }
+}
+
+canvas.addEventListener('click', (e) => {
+  audio.init();
+  if (state.mode === 'CUTSCENE_INTRO' || state.mode === 'CUTSCENE_1_TO_2') {
+    const rect = canvas.getBoundingClientRect();
+    const cx = ((e.clientX - rect.left) / rect.width) * W;
+    const cy = ((e.clientY - rect.top) / rect.height) * H;
+    if (cx >= SKIP_BTN.x - 6 && cx <= SKIP_BTN.x + SKIP_BTN.w + 6 &&
+        cy >= SKIP_BTN.y - 6 && cy <= SKIP_BTN.y + SKIP_BTN.h + 6) {
+      advanceOrSkipCutscene();
+    }
+  }
+});
+
+window.addEventListener('keydown', (e) => {
+  audio.init();
+  if (!keys[e.code]) justPressed[e.code] = true;
+  keys[e.code] = true;
+
+  if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+    e.preventDefault();
+  }
+
+  if (e.code === 'KeyH' && (state.mode === 'LEVEL1' || state.mode === 'LEVEL2')) {
+    state.showControlsBar = !state.showControlsBar;
+  }
+
+  // Navegación limpia de la pantalla de título estilo Contra NES
+  if (state.mode === 'TITLE') {
+    if (e.code === 'ArrowUp' || e.code === 'KeyW' || e.code === 'ArrowDown' || e.code === 'KeyS') {
+      state.titleMenuIndex = state.titleMenuIndex === 0 ? 1 : 0;
+      state.showTitleGuide = (state.titleMenuIndex === 1);
+      audio.menuMove();
+    } else if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyJ') {
+      if (state.titleMenuIndex === 0) {
+        audio.menuSelect();
+        triggerIntroCutscene();
+      } else {
+        state.showTitleGuide = !state.showTitleGuide;
+        audio.menuMove();
+      }
+    }
+  } else if (state.mode === 'CUTSCENE_INTRO') {
+    if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyJ' || e.code === 'Escape') {
+      advanceOrSkipCutscene();
+    }
+  } else if (state.mode === 'CUTSCENE_1_TO_2') {
+    if ((e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyJ' || e.code === 'Escape') && state.level1Completed) {
+      advanceOrSkipCutscene();
+    }
+  } else if (state.mode === 'VICTORY_SET') {
+    if (e.code === 'Enter' || e.code === 'Space') {
+      state.mode = 'TITLE';
+      state.titleMenuIndex = 0;
+      state.showTitleGuide = false;
+    }
+  } else if (state.mode === 'GAMEOVER') {
+    if (e.code === 'Enter' || e.code === 'Space' || e.code === 'KeyR') {
+      startLevel(state.level === 2 && state.level1Completed ? 2 : 1);
+    }
+  }
+});
+
+window.addEventListener('keyup', (e) => {
+  keys[e.code] = false;
+});
+
+document.querySelectorAll('.t-btn, .a-btn').forEach(btn => {
+  const code = btn.getAttribute('data-key');
+  const press = (ev) => {
+    ev.preventDefault();
+    audio.init();
+    if (!keys[code]) justPressed[code] = true;
+    keys[code] = true;
+    btn.classList.add('active');
+    if (state.mode === 'TITLE') { audio.menuSelect(); triggerIntroCutscene(); }
+    else if (state.mode === 'CUTSCENE_INTRO') advanceOrSkipCutscene();
+    else if (state.mode === 'CUTSCENE_1_TO_2' && state.level1Completed) advanceOrSkipCutscene();
+    else if (state.mode === 'GAMEOVER') startLevel(state.level === 2 && state.level1Completed ? 2 : 1);
+    else if (state.mode === 'VICTORY_SET') { state.mode = 'TITLE'; }
+  };
+  const release = (ev) => {
+    ev.preventDefault();
+    keys[code] = false;
+    btn.classList.remove('active');
+  };
+  btn.addEventListener('touchstart', press);
+  btn.addEventListener('touchend', release);
+  btn.addEventListener('mousedown', press);
+  btn.addEventListener('mouseup', release);
+});
+
+document.getElementById('btn-title').addEventListener('click', () => {
+  audio.init();
+  audio.menuMove();
+  state.mode = 'TITLE';
+  state.titleMenuIndex = 0;
+  state.showTitleGuide = false;
+});
+document.getElementById('btn-toggle-guide').addEventListener('click', () => {
+  audio.init();
+  state.showControlsBar = !state.showControlsBar;
+});
+document.getElementById('btn-mute').addEventListener('click', (e) => {
+  audio.init();
+  audio.muted = !audio.muted;
+  e.target.textContent = audio.muted ? 'SONIDO: OFF' : 'SONIDO: ON';
+});
+
+// ============================================================================
+// 4. ENTIDADES Y CONSTRUCCIÓN DE NIVELES
+// ============================================================================
+const player = {
+  x: 64,
+  y: GROUND_Y - 44,
+  w: 22,
+  h: 44,
+  vx: 0,
+  vy: 0,
+  facing: 1,
+  aimX: 1,
+  aimY: 0,
+  onGround: true,
+  crouching: false,
+  hp: 15,
+  maxHp: 15,
+  weapon: 'R', // R = Rifle, S = Spread, M = Machine
+  invuln: 0,
+  shootCooldown: 0,
+  animTimer: 0,
+  animFrame: 0
+};
+
+let platforms = [];
+let enemies = [];
+let bullets = [];
+let enemyBullets = [];
+let pickups = [];
+let hostages = [];
+let squadAllies = [];
+let particles = [];
+let popups = [];
+let props = [];
+
+function spawnParticles(x, y, color, count = 10, speed = 110) {
+  for (let i = 0; i < count; i++) {
+    const ang = Math.random() * Math.PI * 2;
+    const spd = 25 + Math.random() * speed;
+    particles.push({
+      x, y,
+      vx: Math.cos(ang) * spd,
+      vy: Math.sin(ang) * spd - 30,
+      life: 0.28 + Math.random() * 0.25,
+      maxLife: 0.53,
+      size: 2 + Math.floor(Math.random() * 2),
+      color
+    });
+  }
+}
+
+function addPopup(x, y, text, color = '#ffd600') {
+  popups.push({ x, y, text, color, life: 1.15 });
+}
+
+function startLevel(lvl) {
+  // Candado estricto: impedir cargar Nivel 2 si no se ha rescatado/completado el Nivel 1
+  if (lvl === 2 && !state.level1Completed) {
+    lvl = 1;
+  }
+
+  state.level = lvl;
+  state.mode = lvl === 1 ? 'LEVEL1' : 'LEVEL2';
+  state.cameraX = 0;
+  state.shake = 0;
+  state.patriaBannerTimer = 0;
+  state.movieCrewProgress = 0;
+  state.subduedCount = 0;
+  state.rescuedCount = 0;
+
+  // Nivel 1: 15 HP para resistir la sorpresa inicial del almacén con margen cómodo
+  player.x = 64;
+  player.y = GROUND_Y - 44;
+  player.vx = 0;
+  player.vy = 0;
+  player.facing = 1;
+  player.aimX = 1;
+  player.aimY = 0;
+  player.onGround = true;
+  player.crouching = false;
+  player.maxHp = lvl === 1 ? 15 : 8;
+  player.hp = player.maxHp;
+  player.weapon = lvl === 1 ? 'R' : 'M';
+  player.invuln = 1.2;
+  player.shootCooldown = 0;
+
+  bullets = [];
+  enemyBullets = [];
+  particles = [];
+  popups = [];
+  platforms = [];
+  enemies = [];
+  pickups = [];
+  hostages = [];
+  squadAllies = [];
+  props = [];
+
+  if (lvl === 1) {
+    state.levelLength = 2150;
+
+    props = [
+      { type: 'ZEBRA', x: 120 },
+      { type: 'BUMP', x: 300 },
+      { type: 'CAR', x: 460, color: '#0288d1' },
+      { type: 'BUMP', x: 740 },
+      { type: 'CAR', x: 960, color: '#d32f2f' },
+      { type: 'ZEBRA', x: 1240 },
+      { type: 'PALM', x: 1480 },
+      { type: 'BUMP', x: 1680 },
+      { type: 'MEXITO_BUILDING', x: 1820 }
+    ];
+
+    platforms = [
+      { x: 455, y: 204, w: 74, h: 8, label: 'TECHO AUTO' },
+      { x: 650, y: 184, w: 94, h: 8, label: 'PARADERO' },
+      { x: 955, y: 204, w: 74, h: 8, label: 'TECHO AUTO' },
+      { x: 1180, y: 174, w: 112, h: 8, label: 'PASARELA' },
+      { x: 1520, y: 188, w: 102, h: 8, label: 'ANDÉN' }
+    ];
+
+    squadAllies = [
+      { x: 32, y: GROUND_Y - 44, offset: -34, shootTimer: 0.7, anim: 0 },
+      { x: 10, y: GROUND_Y - 44, offset: -64, shootTimer: 1.1, anim: 2 }
+    ];
+
+    pickups = [
+      { x: 340, y: GROUND_Y - 22, kind: 'WEAPON_S', label: 'S' },
+      { x: 685, y: 162, kind: 'CRISPY', label: 'CRISPY +HP' },
+      { x: 890, y: GROUND_Y - 22, kind: 'LIQUOR', label: 'LICOR +300' },
+      { x: 1215, y: 152, kind: 'WEAPON_M', label: 'M' },
+      { x: 1410, y: GROUND_Y - 22, kind: 'CLOTHES', label: 'ROPA +300' },
+      { x: 1740, y: GROUND_Y - 22, kind: 'CRISPY', label: 'CRISPY +HP' }
+    ];
+
+    // Vigilancia sorprendida por el asalto: menos enemigos, menos vida y reacción más lenta
+    const guardSpots = [420, 690, 920, 1220, 1460, 1690];
+    guardSpots.forEach((gx, i) => {
+      enemies.push({
+        x: gx,
+        y: GROUND_Y - 38,
+        w: 22,
+        h: 38,
+        vx: i % 2 === 0 ? -24 : 0,
+        hp: 1,
+        maxHp: 1,
+        type: 'GUARD',
+        prone: false,
+        stunned: false,
+        stunTimer: 0,
+        shootTimer: 2.3 + (i % 3) * 0.55,
+        facing: -1,
+        flash: 0
+      });
+    });
+
+    enemies.push({
+      x: 1920,
+      y: GROUND_Y - 64,
+      w: 44,
+      h: 64,
+      vx: 0,
+      hp: 12,
+      maxHp: 12,
+      type: 'BOSS_GATE',
+      prone: false,
+      stunned: false,
+      stunTimer: 0,
+      shootTimer: 2.0,
+      facing: -1,
+      flash: 0
+    });
+  } else {
+    state.levelLength = 2350;
+    state.totalHostages = 4;
+
+    platforms = [
+      { x: 320, y: 186, w: 112, h: 8, label: 'GÓNDOLA LICOR' },
+      { x: 580, y: 170, w: 122, h: 8, label: 'ZONA DEPORTIVA' },
+      { x: 880, y: 186, w: 112, h: 8, label: 'ISLA CRISPY' },
+      { x: 1200, y: 168, w: 132, h: 8, label: 'PASILLO CENTRAL' },
+      { x: 1560, y: 182, w: 122, h: 8, label: 'BODEGA SUR' }
+    ];
+
+    pickups = [
+      { x: 365, y: 164, kind: 'CRISPY', label: 'COMBO +HP' },
+      { x: 630, y: 148, kind: 'WEAPON_S', label: 'S' },
+      { x: 1250, y: 146, kind: 'CRISPY', label: 'COMBO +HP' },
+      { x: 1610, y: 160, kind: 'WEAPON_M', label: 'M' }
+    ];
+
+    hostages = [
+      { x: 480, y: GROUND_Y - 32, rescued: false },
+      { x: 930, y: 154, rescued: false },
+      { x: 1420, y: GROUND_Y - 32, rescued: false },
+      { x: 1980, y: GROUND_Y - 32, rescued: false }
+    ];
+
+    const crimSpots = [
+      { x: 430, y: GROUND_Y - 38, canProne: true },
+      { x: 630, y: 132, canProne: false },
+      { x: 850, y: GROUND_Y - 38, canProne: true },
+      { x: 1120, y: GROUND_Y - 38, canProne: false },
+      { x: 1360, y: GROUND_Y - 38, canProne: true },
+      { x: 1610, y: 144, canProne: false },
+      { x: 1910, y: GROUND_Y - 38, canProne: true }
+    ];
+    crimSpots.forEach((c, idx) => {
+      enemies.push({
+        x: c.x,
+        y: c.y,
+        w: 22,
+        h: 38,
+        vx: 0,
+        hp: 3,
+        maxHp: 3,
+        type: 'CRIMINAL',
+        canProne: c.canProne,
+        prone: false,
+        proneTimer: 1.6 + (idx % 2) * 0.8,
+        stunned: false,
+        stunTimer: 0,
+        shootTimer: 1.6 + (idx % 3) * 0.45,
+        facing: -1,
+        flash: 0
+      });
+    });
+  }
+}
+
+// ============================================================================
+// 5. FÍSICA, DISPARO EN 8 DIRECCIONES, PRONE REAL Y CAPTURA PATRIA MILAGRO
+// ============================================================================
+function firePlayerWeapon() {
+  let dx = player.aimX;
+  let dy = player.aimY;
+  if (dx === 0 && dy === 0) dx = player.facing;
+
+  const len = Math.hypot(dx, dy) || 1;
+  dx /= len;
+  dy /= len;
+
+  const startX = player.x + (player.facing === 1 ? 26 : -6);
+  const startY = player.crouching ? (player.y + player.h - 6) : (player.y + 16);
+
+  audio.shoot(player.weapon);
+
+  if (player.weapon === 'S') {
+    const baseAngle = Math.atan2(dy, dx);
+    [-0.24, -0.12, 0, 0.12, 0.24].forEach(spread => {
+      const a = baseAngle + spread;
+      bullets.push({
+        x: startX, y: startY,
+        vx: Math.cos(a) * 365,
+        vy: Math.sin(a) * 365,
+        r: 4,
+        color: '#ff1744',
+        core: '#ffffff',
+        fromAlly: false
+      });
+    });
+    player.shootCooldown = 0.24;
+  } else if (player.weapon === 'M') {
+    bullets.push({
+      x: startX, y: startY,
+      vx: dx * 435,
+      vy: dy * 435,
+      r: 3.5,
+      color: '#00e5ff',
+      core: '#ffffff',
+      fromAlly: false
+    });
+    player.shootCooldown = 0.11;
+  } else {
+    bullets.push({
+      x: startX, y: startY,
+      vx: dx * 395,
+      vy: dy * 395,
+      r: 3.5,
+      color: '#ffd600',
+      core: '#ffffff',
+      fromAlly: false
+    });
+    player.shootCooldown = 0.17;
+  }
+}
+
+function subdueCriminal(enemy) {
+  enemy.dead = true;
+  state.subduedCount++;
+  state.score += 500;
+  state.patriaBannerTimer = 2.6;
+  state.patriaBannerCount = state.subduedCount;
+  state.shake = 5;
+  audio.patriaMilagroFanfare();
+  spawnParticles(enemy.x + 11, enemy.y + 18, '#00e5ff', 16, 135);
+  spawnParticles(enemy.x + 11, enemy.y + 18, '#ffd600', 12, 115);
+  addPopup(enemy.x - 16, enemy.y - 12, '¡SOMETIDO! +500', '#00e5ff');
+}
+
+function getEntityHitbox(ent) {
+  // Cuerpo a tierra (prone): hitbox ultra baja pegada al suelo (6 px de alto) para esquivar balas de pie
+  if (ent.prone || ent.crouching) {
+    return {
+      x: ent.x - 4,
+      y: ent.y + ent.h - 6,
+      w: 34,
+      h: 6
+    };
+  }
+  return {
+    x: ent.x,
+    y: ent.y,
+    w: ent.w,
+    h: ent.h
+  };
+}
+
+function rectOverlap(ax, ay, aw, ah, bx, by, bw, bh) {
+  return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+}
+
+function damagePlayer(amount) {
+  if (player.invuln > 0) return;
+  player.hp -= amount;
+  player.invuln = 1.05;
+  state.shake = 5;
+  audio.hit();
+  spawnParticles(player.x + 11, player.y + 20, '#e62129', 10, 95);
+  if (player.hp <= 0) {
+    player.hp = 0;
+    state.mode = 'GAMEOVER';
+    audio.explosion();
+  }
+}
+
+function update(dt) {
+  audio.updateBgm(dt, state.mode);
+
+  if (state.shake > 0) state.shake = Math.max(0, state.shake - dt * 28);
+  if (state.patriaBannerTimer > 0) state.patriaBannerTimer = Math.max(0, state.patriaBannerTimer - dt);
+
+  particles.forEach(p => {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 260 * dt;
+    p.life -= dt;
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  popups.forEach(pop => {
+    pop.y -= 22 * dt;
+    pop.life -= dt;
+  });
+  popups = popups.filter(pop => pop.life > 0);
+
+  if (state.mode === 'CUTSCENE_INTRO') {
+    state.cutsceneTimer += dt;
+    if (state.cutsceneTimer > 12.5) {
+      startLevel(1);
+    }
+    clearJustPressed();
+    return;
+  }
+
+  if (state.mode === 'CUTSCENE_1_TO_2') {
+    state.cutsceneTimer += dt;
+    if (state.cutsceneTimer > 13.5 && state.level1Completed) {
+      startLevel(2);
+    }
+    clearJustPressed();
+    return;
+  }
+
+  if (state.mode === 'VICTORY_SET') {
+    state.movieCrewProgress = Math.min(1, state.movieCrewProgress + dt * 0.45);
+    if (Math.random() < 0.22) {
+      spawnParticles(state.cameraX + 80 + Math.random() * 350, 55 + Math.random() * 60, '#ffd600', 3, 40);
+    }
+    clearJustPressed();
+    return;
+  }
+
+  if (state.mode !== 'LEVEL1' && state.mode !== 'LEVEL2') {
+    clearJustPressed();
+    return;
+  }
+
+  // --- Movimiento y puntería 8 direcciones ---
+  const left = keys['ArrowLeft'] || keys['KeyA'];
+  const right = keys['ArrowRight'] || keys['KeyD'];
+  const up = keys['ArrowUp'] || keys['KeyW'];
+  const down = keys['ArrowDown'] || keys['KeyS'];
+  const jumpPressed = justPressed['Space'] || justPressed['KeyW'] && false;
+  const shootHeld = keys['KeyJ'] || keys['KeyZ'];
+  const actionPressed = justPressed['KeyK'] || justPressed['KeyE'];
+
+  player.crouching = Boolean(down && player.onGround && !left && !right);
+
+  let moveX = 0;
+  if (!player.crouching) {
+    if (left) { moveX -= 1; player.facing = -1; }
+    if (right) { moveX += 1; player.facing = 1; }
+  }
+
+  player.vx = moveX * 138;
+
+  // Puntería en 8 direcciones
+  if (player.crouching) {
+    player.aimX = player.facing;
+    player.aimY = 0;
+  } else if (up && (left || right)) {
+    player.aimX = player.facing;
+    player.aimY = -1;
+  } else if (down && (left || right)) {
+    player.aimX = player.facing;
+    player.aimY = 1;
+  } else if (up) {
+    player.aimX = 0;
+    player.aimY = -1;
+  } else if (down && !player.onGround) {
+    player.aimX = 0;
+    player.aimY = 1;
+  } else {
+    player.aimX = player.facing;
+    player.aimY = 0;
+  }
+
+  if ((justPressed['Space']) && player.onGround) {
+    player.vy = -295;
+    player.onGround = false;
+    player.crouching = false;
+    audio.jump();
+  }
+
+  const prevBottom = player.y + player.h;
+  player.x += player.vx * dt;
+  player.vy += 760 * dt;
+  player.y += player.vy * dt;
+
+  player.x = Math.max(state.cameraX + 6, Math.min(state.levelLength - 40, player.x));
+
+  player.onGround = false;
+  if (player.y + player.h >= GROUND_Y) {
+    player.y = GROUND_Y - player.h;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  // Plataformas atravesables desde abajo
+  if (player.vy >= 0 && !down) {
+    platforms.forEach(plat => {
+      const currBottom = player.y + player.h;
+      if (
+        player.x + player.w > plat.x + 4 &&
+        player.x < plat.x + plat.w - 4 &&
+        prevBottom <= plat.y + 4 &&
+        currBottom >= plat.y
+      ) {
+        player.y = plat.y - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    });
+  }
+
+  if (Math.abs(player.vx) > 5 && player.onGround) {
+    player.animTimer += dt;
+    if (player.animTimer >= 0.085) {
+      player.animTimer = 0;
+      player.animFrame = (player.animFrame + 1) % 6;
+    }
+  } else {
+    player.animFrame = 0;
+  }
+
+  if (player.invuln > 0) player.invuln = Math.max(0, player.invuln - dt);
+  if (player.shootCooldown > 0) player.shootCooldown = Math.max(0, player.shootCooldown - dt);
+
+  if (shootHeld && player.shootCooldown <= 0) {
+    firePlayerWeapon();
+  }
+
+  // Cámara avanza progresivamente con el jugador
+  const targetCam = Math.max(state.cameraX, Math.min(state.levelLength - W, player.x - 150));
+  state.cameraX += (targetCam - state.cameraX) * Math.min(1, dt * 8);
+
+  // Escuadrón aliado en Nivel 1
+  if (state.level === 1) {
+    squadAllies.forEach(ally => {
+      const targetX = Math.max(state.cameraX + 8, player.x + ally.offset);
+      ally.x += (targetX - ally.x) * Math.min(1, dt * 5);
+      ally.y = GROUND_Y - 44;
+      ally.anim += dt * 7;
+      ally.shootTimer -= dt;
+      if (ally.shootTimer <= 0) {
+        ally.shootTimer = 1.05 + Math.random() * 0.4;
+        const visibleEnemy = enemies.find(e => !e.dead && e.x > ally.x && e.x < state.cameraX + W);
+        if (visibleEnemy) {
+          bullets.push({
+            x: ally.x + 24,
+            y: ally.y + 16,
+            vx: 340,
+            vy: 0,
+            r: 3,
+            color: '#ffd600',
+            core: '#ffffff',
+            fromAlly: true
+          });
+        }
+      }
+    });
+  }
+
+  // Pickups
+  const pBox = getEntityHitbox(player);
+  pickups.forEach(pk => {
+    if (pk.collected) return;
+    if (rectOverlap(pBox.x, pBox.y, pBox.w, pBox.h, pk.x, pk.y, 18, 18)) {
+      pk.collected = true;
+      audio.powerup();
+      spawnParticles(pk.x + 9, pk.y + 9, '#ffd600', 12, 95);
+      if (pk.kind === 'WEAPON_S') {
+        player.weapon = 'S';
+        state.score += 300;
+        addPopup(pk.x, pk.y - 6, 'SPREAD [S]', '#ff5252');
+      } else if (pk.kind === 'WEAPON_M') {
+        player.weapon = 'M';
+        state.score += 300;
+        addPopup(pk.x, pk.y - 6, 'MACHINE [M]', '#00e5ff');
+      } else if (pk.kind === 'CRISPY') {
+        player.hp = Math.min(player.maxHp, player.hp + 4);
+        state.score += 250;
+        addPopup(pk.x, pk.y - 6, 'CRISPY +4 HP', '#ffd600');
+      } else {
+        player.hp = Math.min(player.maxHp, player.hp + 2);
+        state.score += 300;
+        addPopup(pk.x, pk.y - 6, pk.label, '#69f0ae');
+      }
+    }
+  });
+
+  // Rescate de rehenes en Nivel 2 con tecla K/E o contacto cercano
+  if (state.level === 2) {
+    hostages.forEach(h => {
+      if (h.rescued) return;
+      const dist = Math.hypot((player.x + 11) - (h.x + 12), (player.y + 22) - (h.y + 16));
+      if (dist < 34 && (actionPressed || dist < 20)) {
+        h.rescued = true;
+        state.rescuedCount++;
+        state.score += 600;
+        audio.powerup();
+        spawnParticles(h.x + 12, h.y + 14, '#69f0ae', 14, 100);
+        addPopup(h.x - 10, h.y - 10, '¡REHÉN A SALVO! +600', '#69f0ae');
+      }
+    });
+  }
+
+  // Enemigos IA (incluyendo cuerpo a tierra real para criminales en Nivel 2)
+  enemies.forEach(e => {
+    if (e.dead) return;
+    if (e.flash > 0) e.flash = Math.max(0, e.flash - dt);
+
+    const onScreen = e.x > state.cameraX - 40 && e.x < state.cameraX + W + 40;
+    if (!onScreen) return;
+
+    if (e.stunned) {
+      e.stunTimer -= dt;
+      e.prone = false;
+      const distToPlayer = Math.hypot((player.x + 11) - (e.x + 11), (player.y + 22) - (e.y + 19));
+      if (distToPlayer < 42 && (actionPressed || distToPlayer < 22)) {
+        subdueCriminal(e);
+        return;
+      }
+      if (e.stunTimer <= 0) {
+        e.stunned = false;
+        e.hp = 2;
+      }
+      return;
+    }
+
+    e.facing = player.x < e.x ? -1 : 1;
+
+    if (e.type === 'GUARD') {
+      e.x += e.vx * dt;
+      if (e.x < state.cameraX + 180) e.vx = 24;
+      if (e.x > state.cameraX + W - 40) e.vx = -24;
+    } else if (e.type === 'CRIMINAL' && e.canProne) {
+      e.proneTimer -= dt;
+      if (e.proneTimer <= 0) {
+        e.prone = !e.prone;
+        e.proneTimer = e.prone ? 1.45 : 2.1;
+      }
+    }
+
+    e.shootTimer -= dt;
+    if (e.shootTimer <= 0) {
+      e.shootTimer = e.type === 'BOSS_GATE' ? 1.85 : (e.type === 'GUARD' ? 2.4 : 1.75);
+      const bx = e.x + (e.facing === 1 ? e.w + 2 : -4);
+      // Disparos de pie salen a altura del pecho (y + 14) para pasar sobre jugadores cuerpo a tierra;
+      // disparos cuerpo a tierra salen rasantes (y + h - 4).
+      const by = e.prone ? (e.y + e.h - 4) : (e.y + 14);
+      const speed = e.type === 'GUARD' ? 165 : 195;
+      enemyBullets.push({
+        x: bx,
+        y: by,
+        vx: e.facing * speed,
+        vy: e.type === 'BOSS_GATE' ? (Math.random() - 0.5) * 30 : 0,
+        r: 3.5,
+        isLowShot: Boolean(e.prone)
+      });
+    }
+  });
+
+  // Proyectiles aliados / jugador
+  bullets.forEach(b => {
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    if (b.x < state.cameraX - 20 || b.x > state.cameraX + W + 20 || b.y < HUD_H || b.y > H) {
+      b.dead = true;
+      return;
+    }
+
+    enemies.forEach(e => {
+      if (b.dead || e.dead || e.stunned) return;
+      const eBox = getEntityHitbox(e);
+      if (rectOverlap(b.x - b.r, b.y - b.r, b.r * 2, b.r * 2, eBox.x, eBox.y, eBox.w, eBox.h)) {
+        b.dead = true;
+        e.hp -= 1;
+        e.flash = 0.1;
+        spawnParticles(b.x, b.y, '#ffd600', 5, 65);
+
+        if (e.hp <= 0) {
+          if (state.level === 2 && e.type === 'CRIMINAL') {
+            e.stunned = true;
+            e.prone = false;
+            e.stunTimer = 6.5;
+            audio.hit();
+            addPopup(e.x - 10, e.y - 10, '¡ATURDIDO! [K/E]', '#ffd600');
+          } else {
+            e.dead = true;
+            state.score += e.type === 'BOSS_GATE' ? 1500 : 200;
+            audio.explosion();
+            spawnParticles(e.x + e.w / 2, e.y + e.h / 2, '#ff6d00', 18, 130);
+
+            if (e.type === 'BOSS_GATE') {
+              state.level1Completed = true;
+              setTimeout(() => {
+                state.mode = 'CUTSCENE_1_TO_2';
+                state.cutsceneTimer = 0;
+                state.cutscenePage = 0;
+                audio.patriaMilagroFanfare();
+              }, 800);
+            }
+          }
+        } else {
+          audio.hit();
+        }
+      }
+    });
+  });
+  bullets = bullets.filter(b => !b.dead);
+
+  // Proyectiles enemigos (esquivados automáticamente si el jugador está cuerpo a tierra)
+  const currentPlayerBox = getEntityHitbox(player);
+  enemyBullets.forEach(eb => {
+    eb.x += eb.vx * dt;
+    eb.y += eb.vy * dt;
+    if (eb.x < state.cameraX - 20 || eb.x > state.cameraX + W + 20 || eb.y < HUD_H || eb.y > H) {
+      eb.dead = true;
+      return;
+    }
+    // Si el jugador está cuerpo a tierra en el piso y la bala no es un disparo rasante, pasa limpiamente por encima
+    if (player.crouching && player.onGround && !eb.isLowShot) {
+      return;
+    }
+    if (rectOverlap(eb.x - eb.r, eb.y - eb.r, eb.r * 2, eb.r * 2,
+      currentPlayerBox.x, currentPlayerBox.y, currentPlayerBox.w, currentPlayerBox.h)) {
+      eb.dead = true;
+      damagePlayer(1);
+    }
+  });
+  enemyBullets = enemyBullets.filter(eb => !eb.dead);
+  enemies = enemies.filter(e => !e.dead);
+
+  // Comprobar victoria del Nivel 2 (todos los criminales sometidos y rehenes rescatados)
+  if (state.level === 2 && enemies.length === 0 && state.rescuedCount >= state.totalHostages) {
+    state.mode = 'VICTORY_SET';
+    state.movieCrewProgress = 0;
+    audio.patriaMilagroFanfare();
+  }
+
+  clearJustPressed();
+}
+
+function clearJustPressed() {
+  for (const k in justPressed) {
+    delete justPressed[k];
+  }
+}
+
+// ============================================================================
+// 6. LOGOS EN PIXEL ART ("méxito" Y "CRISPY" CON BÚHO CHEF)
+// ============================================================================
+function drawMexitoLogo(x, y, scale = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  px(ctx, 0, 0, 126, 44, '#111111');
+  px(ctx, 2, 2, 122, 40, '#ffd600');
+  px(ctx, 4, 4, 118, 2, '#fff59d');
+
+  ctx.font = '15px "Press Start 2P", monospace';
+  ctx.fillStyle = '#14171f';
+  ctx.fillText('méxito', 14, 29);
+
+  // Acento de la é y punto rojo característico bajo la i
+  px(ctx, 35, 9, 7, 3, '#14171f');
+  px(ctx, 73, 32, 7, 7, '#e62129');
+  px(ctx, 75, 33, 2, 2, '#ff8a80');
+
+  ctx.restore();
+}
+
+function drawCrispySign(x, y, scale = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  px(ctx, 0, 0, 122, 54, '#111111');
+  px(ctx, 2, 2, 118, 50, '#ffd600');
+
+  ctx.drawImage(Sprites.owlChef, 4, 3, 42, 46);
+
+  ctx.font = '11px "Press Start 2P", monospace';
+  ctx.fillStyle = '#111111';
+  ctx.fillText('CRISPY', 49, 28);
+  ctx.fillStyle = '#e62129';
+  ctx.fillText('CRISPY', 48, 27);
+
+  ctx.font = '5px "Press Start 2P", monospace';
+  ctx.fillStyle = '#14171f';
+  ctx.fillText('POLLO CRUJIENTE', 48, 39);
+
+  ctx.restore();
+}
+
+// ============================================================================
+// 7. PANTALLA DE TÍTULO ESTILO CONTRA NES (LIMPIA, SIN C ARDIENTE)
+// ============================================================================
+function drawMetallicLetterBlock(text, centerX, topY, fontSize) {
+  ctx.save();
+  ctx.font = `${fontSize}px "Press Start 2P", monospace`;
+  ctx.textAlign = 'center';
+
+  // Sombra púrpura profunda estilo Contra NES
+  ctx.fillStyle = '#4a148c';
+  ctx.fillText(text, centerX + 3, topY + 3);
+  ctx.fillStyle = '#7b1fa2';
+  ctx.fillText(text, centerX + 2, topY + 2);
+
+  // Degradado metálico plateado horizontal
+  const grad = ctx.createLinearGradient(0, topY - fontSize, 0, topY + 2);
+  grad.addColorStop(0.0, '#ffffff');
+  grad.addColorStop(0.35, '#cfd8dc');
+  grad.addColorStop(0.55, '#546e7a');
+  grad.addColorStop(0.85, '#eceff1');
+  grad.addColorStop(1.0, '#90a4ae');
+
+  ctx.fillStyle = grad;
+  ctx.fillText(text, centerX, topY);
+  ctx.restore();
+}
+
+function drawTitleScreen() {
+  // Fondo negro puro NES
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Marco degradado magenta -> cian -> púrpura estilo Contra (1987)
+  const borderGrad = ctx.createLinearGradient(0, 0, W, H);
+  borderGrad.addColorStop(0, '#e91e63');
+  borderGrad.addColorStop(0.5, '#00e5ff');
+  borderGrad.addColorStop(1, '#9c27b0');
+  ctx.strokeStyle = borderGrad;
+  ctx.lineWidth = 4;
+  ctx.strokeRect(10, 10, W - 20, H - 20);
+
+  // Título monumental centrado SIN media luna ni emblema 'C'
+  drawMetallicLetterBlock('ASALTO A LA', W / 2, 54, 21);
+  drawMetallicLetterBlock('PATRIA MILAGRO', W / 2, 86, 23);
+
+  // Línea separadora dorada sutil
+  px(ctx, 84, 96, W - 168, 2, '#ffd600');
+
+  // Retrato dual abajo a la derecha (Asaltante Táctico + Superhéroe Frente Gigante)
+  ctx.drawImage(Sprites.titlePortraits, W - 180, H - 124, 156, 108);
+
+  // Selector de menú abajo a la izquierda sin solapamientos
+  const menuX = 48;
+  const menuY = 148;
+
+  ctx.font = '9px "Press Start 2P", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#00e5ff';
+  ctx.fillText('SELECCIÓN DE MISIÓN', menuX, menuY - 18);
+
+  const options = [
+    'INICIAR OPERATIVO',
+    'CONTROLES Y REGLAS'
+  ];
+
+  options.forEach((opt, idx) => {
+    const oy = menuY + idx * 24;
+    const selected = state.titleMenuIndex === idx;
+    if (selected) {
+      const bobX = Math.floor(Math.sin(Date.now() / 140) * 2);
+      ctx.drawImage(Sprites.eagleCursor, menuX - 28 + bobX, oy - 11, 22, 14);
+    }
+    ctx.fillStyle = selected ? '#ffd600' : '#cfd8dc';
+    ctx.fillText(opt, menuX, oy);
+  });
+
+  // Estado de bloqueo explícito del Nivel 2
+  ctx.font = '6.5px "Press Start 2P", monospace';
+  ctx.fillStyle = state.level1Completed ? '#69f0ae' : '#ff5252';
+  ctx.fillText(
+    state.level1Completed ? 'NV.2 RESCATE: DESBLOQUEADO' : 'NV.2 RESCATE: BLOQUEADO (SUPERA NV.1)',
+    menuX,
+    menuY + 54
+  );
+
+  // Panel limpio de controles cuando se selecciona o activa la guía
+  if (state.showTitleGuide) {
+    px(ctx, 24, 212, 294, 58, '#10141f');
+    ctx.strokeStyle = '#ffd600';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(24, 212, 294, 58);
+
+    ctx.font = '6px "Press Start 2P", monospace';
+    ctx.fillStyle = '#ffd600';
+    ctx.fillText('WASD/FLECHAS: MOVER Y APUNTAR 8 DIR', 32, 226);
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillText('ABAJO [S]: CUERPO A TIERRA (ESQUIVA)', 32, 239);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('[ESPACIO]: SALTAR   [J/Z]: DISPARAR', 32, 252);
+    ctx.fillStyle = '#69f0ae';
+    ctx.fillText('[K/E]: SOMETER CRIMINAL / LIBERAR REHÉN', 32, 264);
+  } else {
+    ctx.font = '7px "Press Start 2P", monospace';
+    ctx.fillStyle = '#90a4ae';
+    ctx.fillText('PULSA [ENTER] O [ESPACIO]', menuX, 248);
+  }
+}
+
+// ============================================================================
+// 8. CINEMÁTICAS NARRATIVAS (INTRO -> NV.1 Y NV.1 -> NV.2) CON BOTÓN SKIP
+// ============================================================================
+function drawSkipButton() {
+  const blink = Math.floor(Date.now() / 280) % 2 === 0;
+  ctx.save();
+  ctx.fillStyle = '#141722';
+  ctx.fillRect(SKIP_BTN.x, SKIP_BTN.y, SKIP_BTN.w, SKIP_BTN.h);
+  ctx.strokeStyle = blink ? '#ffd600' : '#00e5ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(SKIP_BTN.x, SKIP_BTN.y, SKIP_BTN.w, SKIP_BTN.h);
+
+  ctx.font = '6px "Press Start 2P", monospace';
+  ctx.fillStyle = blink ? '#ffd600' : '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.fillText('SKIP [ENTER]', SKIP_BTN.x + SKIP_BTN.w / 2, SKIP_BTN.y + 12);
+  ctx.restore();
+}
+
+function drawTypewriterLines(lines, startX, startY, lineHeight, timer, charsPerSec = 42) {
+  let remainingChars = Math.floor(timer * charsPerSec);
+  ctx.save();
+  ctx.textAlign = 'left';
+  for (let i = 0; i < lines.length; i++) {
+    const item = lines[i];
+    if (remainingChars <= 0) break;
+    const visibleText = item.text.slice(0, remainingChars);
+    remainingChars -= item.text.length;
+    ctx.font = `${item.size || 6.5}px "Press Start 2P", monospace`;
+    ctx.fillStyle = item.color || '#ffffff';
+    ctx.fillText(visibleText, startX, startY + i * lineHeight);
+  }
+  ctx.restore();
+}
+
+function drawCutsceneIntro() {
+  ctx.fillStyle = '#07090f';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#ffd600';
+  ctx.fillRect(0, 36, W, 2);
+  ctx.fillRect(0, H - 24, W, 2);
+
+  ctx.font = '8px "Press Start 2P", monospace';
+  ctx.fillStyle = '#ffd600';
+  ctx.textAlign = 'left';
+  ctx.fillText('ACTO I: LA COARTADA PERFECTA', 16, 24);
+
+  drawSkipButton();
+
+  // Escena ilustrada izquierda: Fachada del almacén MÉXITO + Botín objetivo
+  ctx.fillStyle = '#111522';
+  ctx.fillRect(16, 48, 178, 198);
+  ctx.strokeStyle = '#37474f';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(16, 48, 178, 198);
+
+  drawMexitoLogo(40, 58, 1.0);
+  drawCrispySign(43, 112, 0.95);
+
+  const bob = Math.sin(state.cutsceneTimer * 4) * 2;
+  ctx.drawImage(Sprites.robberFrames[Math.floor(state.cutsceneTimer * 6) % 6], 34, 184, 32, 44);
+  ctx.drawImage(Sprites.lootClothes, 86, 198 + bob, 22, 22);
+  ctx.drawImage(Sprites.lootLiquor, 118, 198 - bob, 22, 22);
+  ctx.drawImage(Sprites.lootCrispy, 150, 198 + bob, 22, 22);
+
+  // Panel narrativo derecho con efecto máquina de escribir
+  ctx.fillStyle = '#0d111a';
+  ctx.fillRect(206, 48, 290, 198);
+  ctx.strokeStyle = '#e62129';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(206, 48, 290, 198);
+
+  const storyLines = [
+    { text: '08:15 AM — ZONA COMERCIAL', color: '#00e5ff', size: 6.5 },
+    { text: 'Un comando táctico irrumpe en la calle', color: '#eceff1', size: 6 },
+    { text: 'fingiendo que van a asaltar un banco.', color: '#eceff1', size: 6 },
+    { text: ' ', color: '#fff', size: 5 },
+    { text: '¡PERO ES UNA SIMPLE COARTADA!', color: '#ffd600', size: 6.5 },
+    { text: 'Su verdadero objetivo es tomar el', color: '#eceff1', size: 6 },
+    { text: 'gran almacén MÉXITO para quedarse', color: '#eceff1', size: 6 },
+    { text: 'con ropa deportiva de lujo, licor', color: '#69f0ae', size: 6 },
+    { text: 'caro y comer pollo CRISPY todo el día.', color: '#ff8a80', size: 6 },
+    { text: ' ', color: '#fff', size: 5 },
+    { text: 'Comanda al líder de la banda y toma', color: '#ffd600', size: 6 },
+    { text: 'el acceso antes de que reaccionen.', color: '#ffd600', size: 6 }
+  ];
+
+  drawTypewriterLines(storyLines, 218, 68, 14, state.cutsceneTimer, 46);
+
+  const pct = Math.min(1, state.cutsceneTimer / 12.5);
+  ctx.fillStyle = '#263238';
+  ctx.fillRect(16, H - 15, W - 32, 6);
+  ctx.fillStyle = '#ffd600';
+  ctx.fillRect(16, H - 15, Math.floor((W - 32) * pct), 6);
+}
+
+function drawCutscene1To2() {
+  ctx.fillStyle = '#07090f';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = '#00e5ff';
+  ctx.fillRect(0, 36, W, 2);
+  ctx.fillRect(0, H - 24, W, 2);
+
+  ctx.font = '7.5px "Press Start 2P", monospace';
+  ctx.fillStyle = '#00e5ff';
+  ctx.textAlign = 'left';
+  ctx.fillText('ACTO II: ¡EL HÉROE DE LA PATRIA MILAGRO!', 16, 24);
+
+  drawSkipButton();
+
+  // Escena ilustrada izquierda: Retrato y cuerpo completo del Superhéroe Frente Gigante
+  ctx.fillStyle = '#111522';
+  ctx.fillRect(16, 48, 178, 198);
+  ctx.strokeStyle = '#ffd600';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(16, 48, 178, 198);
+
+  const pulse = Math.sin(state.cutsceneTimer * 5) * 4;
+  ctx.fillStyle = 'rgba(0, 229, 255, 0.14)';
+  ctx.beginPath();
+  ctx.arc(105, 134, 54 + pulse, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.drawImage(Sprites.foreheadHero, 61, 64, 88, 112);
+
+  ctx.font = '6px "Press Start 2P", monospace';
+  ctx.fillStyle = '#ffd600';
+  ctx.textAlign = 'center';
+  ctx.fillText('COMANDANTE SUPREMO', 105, 194);
+  ctx.fillStyle = '#00e5ff';
+  ctx.fillText('FRENTE DE ACERO', 105, 208);
+  ctx.fillStyle = '#e62129';
+  ctx.fillText('FUERZAS ARMADAS', 105, 222);
+  ctx.textAlign = 'left';
+
+  // Panel narrativo derecho presentando al Superhéroe y el giro de rescate
+  ctx.fillStyle = '#0d111a';
+  ctx.fillRect(206, 48, 290, 198);
+  ctx.strokeStyle = '#00e5ff';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(206, 48, 290, 198);
+
+  const heroStoryLines = [
+    { text: '¡EL ATRACO SE SALIÓ DE CONTROL!', color: '#e62129', size: 6.5 },
+    { text: 'Con rehenes adentro del MÉXITO,', color: '#eceff1', size: 6 },
+    { text: 'las Fuerzas Armadas rodean el lugar.', color: '#eceff1', size: 6 },
+    { text: ' ', color: '#fff', size: 5 },
+    { text: 'AL MANDO VA EL SUPERHÉROE:', color: '#ffd600', size: 6.5 },
+    { text: 'Dotado de una cabeza colosal y una', color: '#00e5ff', size: 6 },
+    { text: 'frente descomunal capaz de intimidar', color: '#00e5ff', size: 6 },
+    { text: 'a cualquier criminal con solo mirarlo.', color: '#00e5ff', size: 6 },
+    { text: ' ', color: '#fff', size: 5 },
+    { text: '¡CAMBIO DE BANDO! Lidera el rescate,', color: '#69f0ae', size: 6 },
+    { text: 'libera rehenes y somete cada banda', color: '#eceff1', size: 6 },
+    { text: 'al grito de: ¡PATRIA MILAGRO!', color: '#ffd600', size: 6 }
+  ];
+
+  drawTypewriterLines(heroStoryLines, 218, 68, 14, state.cutsceneTimer, 46);
+
+  const pct = Math.min(1, state.cutsceneTimer / 13.5);
+  ctx.fillStyle = '#263238';
+  ctx.fillRect(16, H - 15, W - 32, 6);
+  ctx.fillStyle = '#00e5ff';
+  ctx.fillRect(16, H - 15, Math.floor((W - 32) * pct), 6);
+}
+
+// ============================================================================
+// 9. RENDERIZADO DE ESCENARIOS, ENTIDADES Y HUD SIN SOLAPAMIENTOS
+// ============================================================================
+function drawLevel1Background() {
+  // Cielo matutino degradado
+  const sky = ctx.createLinearGradient(0, HUD_H, 0, GROUND_Y);
+  sky.addColorStop(0, '#1e88e5');
+  sky.addColorStop(0.65, '#64b5f6');
+  sky.addColorStop(1, '#bbdefb');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, HUD_H, W, GROUND_Y - HUD_H);
+
+  // Silueta urbana lejana con parallax
+  const parallaxX = -(state.cameraX * 0.25) % 160;
+  for (let bx = parallaxX - 160; bx < W + 160; bx += 160) {
+    px(ctx, bx + 10, 128, 54, 114, '#455a64');
+    px(ctx, bx + 78, 108, 66, 134, '#37474f');
+    for (let wy = 118; wy < 224; wy += 16) {
+      px(ctx, bx + 86, wy, 10, 8, '#90caf9');
+      px(ctx, bx + 106, wy, 10, 8, '#90caf9');
+      px(ctx, bx + 126, wy, 10, 8, '#ffd600');
+    }
+  }
+
+  // Acera y avenida asfaltada
+  px(ctx, 0, GROUND_Y - 12, W, 12, '#cfd8dc');
+  px(ctx, 0, GROUND_Y, W, H - GROUND_Y, '#263238');
+  px(ctx, 0, GROUND_Y + 2, W, 2, '#90a4ae');
+
+  // Props del escenario callejero
+  props.forEach(pr => {
+    const sx = Math.floor(pr.x - state.cameraX);
+    if (sx < -260 || sx > W + 120) return;
+
+    if (pr.type === 'ZEBRA') {
+      for (let z = 0; z < 5; z++) {
+        px(ctx, sx + z * 18, GROUND_Y + 8, 12, 28, '#eceff1');
+      }
+    } else if (pr.type === 'BUMP') {
+      for (let b = 0; b < 6; b++) {
+        px(ctx, sx + b * 8, GROUND_Y - 3, 8, 5, b % 2 === 0 ? '#ffd600' : '#111111');
+      }
+    } else if (pr.type === 'CAR') {
+      px(ctx, sx, GROUND_Y - 38, 74, 22, pr.color);
+      px(ctx, sx + 14, GROUND_Y - 52, 44, 16, pr.color);
+      px(ctx, sx + 18, GROUND_Y - 49, 16, 11, '#b3e5fc');
+      px(ctx, sx + 38, GROUND_Y - 49, 16, 11, '#b3e5fc');
+      px(ctx, sx + 8, GROUND_Y - 16, 16, 16, '#111111');
+      px(ctx, sx + 50, GROUND_Y - 16, 16, 16, '#111111');
+    } else if (pr.type === 'PALM') {
+      px(ctx, sx + 10, GROUND_Y - 76, 8, 76, '#6d4c41');
+      px(ctx, sx - 12, GROUND_Y - 84, 52, 10, '#2e7d32');
+      px(ctx, sx - 4, GROUND_Y - 92, 36, 10, '#43a047');
+    } else if (pr.type === 'MEXITO_BUILDING') {
+      // Gran fachada amarilla, negra y roja del supermercado "méxito"
+      px(ctx, sx, 48, 250, GROUND_Y - 48, '#ffd600');
+      px(ctx, sx, 48, 250, 6, '#111111');
+      px(ctx, sx + 16, 146, 218, 14, '#37474f');
+      px(ctx, sx + 28, 160, 194, GROUND_Y - 160, '#b3e5fc');
+      px(ctx, sx + 96, 160, 58, GROUND_Y - 160, '#14171f');
+      drawMexitoLogo(sx + 62, 62, 1.05);
+      drawCrispySign(sx + 64, 112, 0.72);
+    }
+  });
+}
+
+function drawLevel2Background() {
+  // Interior del hipermercado "méxito" con estanterías, pasillos y avisos CRISPY
+  px(ctx, 0, HUD_H, W, GROUND_Y - HUD_H, '#eceff1');
+
+  const aisleParallax = -(state.cameraX * 0.45) % 220;
+  for (let ax = aisleParallax - 220; ax < W + 220; ax += 220) {
+    // Góndolas de productos
+    px(ctx, ax + 14, 92, 150, 150, '#cfd8dc');
+    px(ctx, ax + 14, 92, 150, 8, '#37474f');
+    for (let shelf = 118; shelf <= 208; shelf += 30) {
+      px(ctx, ax + 14, shelf, 150, 4, '#546e7a');
+      for (let item = 22; item < 150; item += 18) {
+        px(ctx, ax + item, shelf - 12, 11, 12, (item + shelf) % 3 === 0 ? '#e62129' : '#ffd600');
+      }
+    }
+    drawMexitoLogo(ax + 36, 40, 0.75);
+  }
+
+  // Piso brillante del almacén
+  px(ctx, 0, GROUND_Y, W, H - GROUND_Y, '#b0bec5');
+  px(ctx, 0, GROUND_Y, W, 3, '#37474f');
+}
+
+function drawEntities() {
+  ctx.save();
+  if (state.shake > 0) {
+    ctx.translate((Math.random() - 0.5) * state.shake, (Math.random() - 0.5) * state.shake);
+  }
+
+  // Plataformas
+  platforms.forEach(plat => {
+    const pxX = Math.floor(plat.x - state.cameraX);
+    if (pxX + plat.w < 0 || pxX > W) return;
+    px(ctx, pxX, plat.y, plat.w, plat.h, '#ffd600');
+    px(ctx, pxX, plat.y + plat.h - 2, plat.w, 2, '#111111');
+  });
+
+  // Pickups
+  pickups.forEach(pk => {
+    if (pk.collected) return;
+    const sx = Math.floor(pk.x - state.cameraX);
+    const bob = Math.sin(Date.now() / 160 + pk.x) * 2;
+    if (pk.kind === 'CRISPY') ctx.drawImage(Sprites.lootCrispy, sx, pk.y + bob);
+    else if (pk.kind === 'LIQUOR') ctx.drawImage(Sprites.lootLiquor, sx, pk.y + bob);
+    else if (pk.kind === 'CLOTHES') ctx.drawImage(Sprites.lootClothes, sx, pk.y + bob);
+    else {
+      px(ctx, sx, pk.y + bob, 18, 18, '#e62129');
+      ctx.strokeStyle = '#ffd600';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(sx, pk.y + bob, 18, 18);
+      ctx.font = '8px "Press Start 2P", monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(pk.label, sx + 5, pk.y + 13 + bob);
+    }
+  });
+
+  // Rehenes en Nivel 2
+  if (state.level === 2) {
+    hostages.forEach(h => {
+      if (h.rescued) return;
+      const hx = Math.floor(h.x - state.cameraX);
+      ctx.drawImage(Sprites.hostage, hx, h.y);
+      ctx.font = '5.5px "Press Start 2P", monospace';
+      ctx.fillStyle = '#00e5ff';
+      ctx.fillText('¡AYUDA! [K]', hx - 12, h.y - 5);
+    });
+
+    // El Superhéroe Frente Gigante acompaña el avance de las Fuerzas Armadas en Nivel 2
+    const heroX = Math.max(12, Math.floor(player.x - state.cameraX - 48));
+    const heroBob = Math.sin(Date.now() / 180) * 2;
+    ctx.drawImage(Sprites.foreheadHero, heroX, GROUND_Y - 56 + heroBob);
+  }
+
+  // Escuadrón aliado en Nivel 1
+  if (state.level === 1) {
+    squadAllies.forEach(ally => {
+      const ax = Math.floor(ally.x - state.cameraX);
+      const frame = Sprites.robberFrames[Math.floor(ally.anim) % 6];
+      ctx.drawImage(frame, ax, ally.y);
+    });
+  }
+
+  // Enemigos
+  enemies.forEach(e => {
+    if (e.dead) return;
+    const ex = Math.floor(e.x - state.cameraX);
+    if (ex < -60 || ex > W + 60) return;
+
+    if (e.type === 'BOSS_GATE') {
+      px(ctx, ex, e.y, e.w, e.h, e.flash > 0 ? '#ffffff' : '#37474f');
+      px(ctx, ex + 4, e.y + 4, e.w - 8, e.h - 8, '#e62129');
+      px(ctx, ex + 10, e.y + 14, 24, 14, '#ffd600');
+      px(ctx, ex - 8, e.y + 20, 12, 8, '#111111');
+      // Barra de vida del portón
+      px(ctx, ex, e.y - 10, e.w, 5, '#111111');
+      px(ctx, ex, e.y - 10, Math.floor((e.hp / e.maxHp) * e.w), 5, '#e62129');
+      return;
+    }
+
+    if (e.prone) {
+      ctx.save();
+      if (e.facing === -1) {
+        ctx.translate(ex + 34, e.y + e.h - 14);
+        ctx.scale(-1, 1);
+        ctx.drawImage(Sprites.criminalProne, 0, 0);
+      } else {
+        ctx.drawImage(Sprites.criminalProne, ex - 10, e.y + e.h - 14);
+      }
+      ctx.restore();
+      return;
+    }
+
+    const sprite = e.type === 'GUARD' ? Sprites.guardEnemy : Sprites.criminalEnemy;
+    ctx.save();
+    if (e.facing === -1) {
+      ctx.translate(ex + 28, e.y);
+      ctx.scale(-1, 1);
+      ctx.drawImage(sprite, 0, 0);
+    } else {
+      ctx.drawImage(sprite, ex, e.y);
+    }
+    ctx.restore();
+
+    if (e.stunned) {
+      const blink = Math.floor(Date.now() / 160) % 2 === 0;
+      ctx.font = '6px "Press Start 2P", monospace';
+      ctx.fillStyle = blink ? '#ffd600' : '#00e5ff';
+      ctx.fillText('SOMETER [K/E]', ex - 22, e.y - 8);
+    }
+  });
+
+  // Jugador (de pie o cuerpo a tierra horizontal raso al piso)
+  if (!(player.invuln > 0 && Math.floor(player.invuln * 16) % 2 === 0)) {
+    const pxX = Math.floor(player.x - state.cameraX);
+    ctx.save();
+    if (player.crouching) {
+      const proneSprite = state.level === 1 ? Sprites.robberProne : Sprites.soldierProne;
+      if (player.facing === -1) {
+        ctx.translate(pxX + 34, player.y + player.h - 14);
+        ctx.scale(-1, 1);
+        ctx.drawImage(proneSprite, 0, 0);
+      } else {
+        ctx.drawImage(proneSprite, pxX - 10, player.y + player.h - 14);
+      }
+    } else {
+      const frames = state.level === 1 ? Sprites.robberFrames : Sprites.soldierFrames;
+      const spr = frames[player.animFrame];
+      if (player.facing === -1) {
+        ctx.translate(pxX + 28, player.y);
+        ctx.scale(-1, 1);
+        ctx.drawImage(spr, 0, 0);
+      } else {
+        ctx.drawImage(spr, pxX - 4, player.y);
+      }
+
+      // Cañón del arma articulado en las 8 direcciones
+      const gunOriginX = pxX + 11;
+      const gunOriginY = player.y + 18;
+      let gx = player.aimX;
+      let gy = player.aimY;
+      if (gx === 0 && gy === 0) gx = player.facing;
+      const gLen = Math.hypot(gx, gy) || 1;
+      gx = (gx / gLen) * 16;
+      gy = (gy / gLen) * 16;
+
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(gunOriginX, gunOriginY);
+      ctx.lineTo(gunOriginX + gx, gunOriginY + gy);
+      ctx.stroke();
+
+      ctx.strokeStyle = player.weapon === 'M' ? '#00e5ff' : (player.weapon === 'S' ? '#ff5252' : '#cfd8dc');
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(gunOriginX, gunOriginY);
+      ctx.lineTo(gunOriginX + gx, gunOriginY + gy);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Balas del jugador / aliados
+  bullets.forEach(b => {
+    const bx = Math.floor(b.x - state.cameraX);
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.arc(bx, b.y, b.r + 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = b.core;
+    ctx.beginPath();
+    ctx.arc(bx, b.y, b.r * 0.65, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Balas enemigas
+  enemyBullets.forEach(eb => {
+    const bx = Math.floor(eb.x - state.cameraX);
+    ctx.fillStyle = '#ff1744';
+    ctx.beginPath();
+    ctx.arc(bx, eb.y, eb.r + 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(bx, eb.y, eb.r * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Partículas y popups
+  particles.forEach(p => {
+    px(ctx, p.x - state.cameraX, p.y, p.size, p.size, p.color);
+  });
+
+  popups.forEach(pop => {
+    ctx.font = '6px "Press Start 2P", monospace';
+    ctx.fillStyle = '#111111';
+    ctx.fillText(pop.text, Math.floor(pop.x - state.cameraX) + 1, Math.floor(pop.y) + 1);
+    ctx.fillStyle = pop.color;
+    ctx.fillText(pop.text, Math.floor(pop.x - state.cameraX), Math.floor(pop.y));
+  });
+
+  ctx.restore();
+}
+
+function drawHUD() {
+  // Franja superior dedicada (sin superponerse con elementos clave)
+  px(ctx, 0, 0, W, HUD_H, '#0b0d14');
+  px(ctx, 0, HUD_H - 2, W, 2, state.level === 1 ? '#ffd600' : '#00e5ff');
+
+  ctx.font = '6.5px "Press Start 2P", monospace';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#ffd600';
+  ctx.fillText(state.level === 1 ? 'NV.1 ASALTO MÉXITO' : 'NV.2 RESCATE MILAGRO', 8, 11);
+
+  // Barra de salud
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('HP:', 8, 21);
+  const barW = 78;
+  px(ctx, 32, 14, barW, 7, '#263238');
+  const hpFill = Math.max(0, Math.floor((player.hp / player.maxHp) * barW));
+  px(ctx, 32, 14, hpFill, 7, player.hp > player.maxHp * 0.35 ? '#69f0ae' : '#ff1744');
+
+  // Arma activa y objetivos
+  ctx.fillStyle = '#00e5ff';
+  ctx.fillText(`ARMA:[${player.weapon}]`, 122, 21);
+
+  if (state.level === 1) {
+    const distPct = Math.min(100, Math.floor((player.x / 1920) * 100));
+    ctx.fillStyle = '#ffd600';
+    ctx.fillText(`AVANCE:${distPct}%`, 204, 21);
+  } else {
+    ctx.fillStyle = '#69f0ae';
+    ctx.fillText(`REHENES:${state.rescuedCount}/${state.totalHostages}`, 204, 21);
+  }
+
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'right';
+  ctx.fillText(`PTS:${String(state.score).padStart(5, '0')}`, W - 8, 11);
+
+  if (state.showControlsBar) {
+    ctx.font = '5.5px "Press Start 2P", monospace';
+    ctx.fillStyle = '#90a4ae';
+    ctx.fillText('[WASD]APUNTAR [S]PISO [ESP]SALTO [J]TIRO [K]ACCIÓN', W - 8, 21);
+  }
+  ctx.textAlign = 'left';
+
+  // Cartel arcade estilo Contra + Ícono gigante central del Superhéroe Frente de Acero
+  if (state.patriaBannerTimer > 0) {
+    const flash = Math.floor(Date.now() / 110) % 2 === 0;
+    const pulse = Math.sin(Date.now() / 90) * 3;
+
+    // Aura luminosa detrás del retrato gigante en el centro de la pantalla
+    ctx.save();
+    ctx.fillStyle = flash ? 'rgba(0, 229, 255, 0.24)' : 'rgba(255, 214, 0, 0.24)';
+    ctx.beginPath();
+    ctx.arc(W / 2, H / 2 + 12, 62 + pulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Marco arcade del emblema gigante del Superhéroe en el centro
+    const iconBoxW = 104;
+    const iconBoxH = 114;
+    const iconBoxX = Math.floor(W / 2 - iconBoxW / 2);
+    const iconBoxY = Math.floor(H / 2 - 36);
+
+    px(ctx, iconBoxX, iconBoxY, iconBoxW, iconBoxH, 'rgba(11, 13, 20, 0.92)');
+    ctx.strokeStyle = flash ? '#00e5ff' : '#ffd600';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(iconBoxX, iconBoxY, iconBoxW, iconBoxH);
+
+    // Ícono grande del Superhéroe de cabeza colosal y frente imponente
+    ctx.drawImage(Sprites.foreheadHero, iconBoxX + 8, iconBoxY + 4, 88, 106);
+    ctx.restore();
+
+    // Banner superior estilo Contra sin superponerse con el ícono central
+    px(ctx, 42, 34, W - 84, 38, '#0b0d14');
+    ctx.strokeStyle = flash ? '#ffd600' : '#00e5ff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(42, 34, W - 84, 38);
+
+    ctx.textAlign = 'center';
+    ctx.font = '8px "Press Start 2P", monospace';
+    ctx.fillStyle = flash ? '#ffd600' : '#ffffff';
+    ctx.fillText('¡BIENVENIDO A LA PATRIA MILAGRO!', W / 2, 51);
+    ctx.font = '6px "Press Start 2P", monospace';
+    ctx.fillStyle = '#00e5ff';
+    ctx.fillText(`DELINCUENTE SOMETIDO #${state.patriaBannerCount}`, W / 2, 65);
+    ctx.textAlign = 'left';
+  }
+}
+
+function drawVictorySetScreen() {
+  drawLevel2Background();
+  drawEntities();
+
+  // Reflectores y cámaras de estudio de grabación invadiendo el almacén
+  const prog = state.movieCrewProgress;
+  const camX = Math.floor(W - 110 * prog);
+  ctx.drawImage(Sprites.movieCamera, camX, GROUND_Y - 30, 34, 30);
+  ctx.drawImage(Sprites.movieCamera, Math.floor(80 * prog), GROUND_Y - 30, 34, 30);
+
+  // Haces de luz de set de cine
+  ctx.save();
+  ctx.fillStyle = 'rgba(255, 245, 157, 0.22)';
+  ctx.beginPath();
+  ctx.moveTo(40, HUD_H);
+  ctx.lineTo(180, GROUND_Y);
+  ctx.lineTo(320, GROUND_Y);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(W - 40, HUD_H);
+  ctx.lineTo(200, GROUND_Y);
+  ctx.lineTo(350, GROUND_Y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  px(ctx, 36, 46, W - 72, 126, 'rgba(10, 12, 20, 0.94)');
+  ctx.strokeStyle = '#ffd600';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(36, 46, W - 72, 126);
+
+  ctx.textAlign = 'center';
+  ctx.font = '9px "Press Start 2P", monospace';
+  ctx.fillStyle = '#ffd600';
+  ctx.fillText('¡OPERATIVO RESCATE COMPLETADO!', W / 2, 70);
+
+  ctx.font = '6.5px "Press Start 2P", monospace';
+  ctx.fillStyle = '#00e5ff';
+  ctx.fillText('¡LLEGA UN ESTUDIO DE GRABACIÓN Y LUCES!', W / 2, 92);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('HOLLYWOOD QUIERE TU HISTORIA EN EL MÉXITO.', W / 2, 110);
+  ctx.fillStyle = '#69f0ae';
+  ctx.fillText('DESBLOQUEADO: NV.3 ESTRELLA DE CINE (PRÓXIMAMENTE)', W / 2, 130);
+  ctx.fillStyle = '#ffd600';
+  ctx.fillText(`PUNTAJE FINAL: ${state.score}  |  [ENTER] MENÚ`, W / 2, 154);
+  ctx.textAlign = 'left';
+}
+
+function drawGameOverScreen() {
+  px(ctx, 0, 0, W, H, 'rgba(5, 5, 10, 0.88)');
+  ctx.textAlign = 'center';
+  ctx.font = '14px "Press Start 2P", monospace';
+  ctx.fillStyle = '#e62129';
+  ctx.fillText('OPERATIVO CAÍDO', W / 2, 118);
+
+  ctx.font = '7.5px "Press Start 2P", monospace';
+  ctx.fillStyle = '#ffd600';
+  ctx.fillText(`PUNTAJE: ${state.score}`, W / 2, 146);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText('PULSA [ENTER] O [R] PARA REINTENTAR', W / 2, 176);
+  ctx.textAlign = 'left';
+}
+
+// ============================================================================
+// 10. BUCLE PRINCIPAL DE ANIMACIÓN (WINDOW.ONLOAD)
+// ============================================================================
+let lastTime = 0;
+
+function gameLoop(timestamp) {
+  if (!lastTime) lastTime = timestamp;
+  const dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+  lastTime = timestamp;
+
+  update(dt);
+
+  ctx.clearRect(0, 0, W, H);
+  if (state.mode === 'TITLE') {
+    drawTitleScreen();
+  } else if (state.mode === 'CUTSCENE_INTRO') {
+    drawCutsceneIntro();
+  } else if (state.mode === 'LEVEL1') {
+    drawLevel1Background();
+    drawEntities();
+    drawHUD();
+  } else if (state.mode === 'CUTSCENE_1_TO_2') {
+    drawCutscene1To2();
+  } else if (state.mode === 'LEVEL2') {
+    drawLevel2Background();
+    drawEntities();
+    drawHUD();
+  } else if (state.mode === 'VICTORY_SET') {
+    drawVictorySetScreen();
+  } else if (state.mode === 'GAMEOVER') {
+    drawGameOverScreen();
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+window.onload = function () {
+  requestAnimationFrame(gameLoop);
+};
+</script>
+</body>
+</html>
